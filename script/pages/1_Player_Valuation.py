@@ -64,7 +64,7 @@ else:
     st.write("### Input data for", player)
 
     # Extract player data
-    df["col"] = df["Player"]==player
+    df["col"] = (df["Player"] == player) & (df["Squad"] == pClub) & (df["Comp"] == pLeague)
     player_df = df[df["col"]==1]
     # Plot all players
     st.write(player_df)
