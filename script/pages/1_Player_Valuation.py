@@ -14,29 +14,42 @@ st.set_page_config(
 )
 st.title("Analysis of player valuation")
 
-@st.cache_data # make this function only run once (memoized)
+@st.cache_data
 def load_data():
     csvFileLocation = "./data/merged_data.csv"
     data = pd.read_csv(csvFileLocation)
-    positions = [(data.Pos == "FW") | (data.Pos == "FWMF") | (data.Pos == "FWDF"),
-                (data.Pos == "MF") | (data.Pos == "MFFW") | (data.Pos == "MFDF"),
-                (data.Pos == "DF") | (data.Pos == "DFMF") | (data.Pos == "DFFW")]
-    posNames = ["Forward","Midfielder","Defender"]
-    gPos = np.select(positions,posNames)
+    
+    # 1. Define conditions clearly
+    # We use .fillna(False) to ensure no NaN values break the boolean logic
+    conditions = [
+        data['Pos'].str.contains("FW", na=False),
+        data['Pos'].str.contains("MF", na=False),
+        data['Pos'].str.contains("DF", na=False)
+    ]
+    posNames = ["Forward", "Midfielder", "Defender"]
+    
+    # 2. Generate gPos with a default value to avoid empty matches
+    gPos = np.select(conditions, posNames, default="Other")
 
-    # Create encoding for the categorical variable
-    new_var = pd.get_dummies(gPos, drop_first=True)
+    # 3. Create encoding. Convert gPos to a Series first for better pd.get_dummies support
+    new_var = pd.get_dummies(pd.Series(gPos), drop_first=True)
+    
+    # Ensure indices match before joining
+    new_var.index = data.index
     data = data.join(new_var)
 
-    X = data.drop(columns=["market_value_in_eur"]).select_dtypes(exclude=['object'])
+    # 4. Prepare X and Y
+    # Drop non-numeric and target columns
+    X = data.drop(columns=["market_value_in_eur", "Pos", "Player", "Squad", "Comp"], errors='ignore').select_dtypes(include=[np.number])
     Y = data['market_value_in_eur']
-    Y_log = np.log(Y)
+    
+    # Avoid log(0) errors
+    Y_log = np.log(Y.replace(0, 1))
 
-    X_train, _, Y_train, _ = train_test_split(X,Y_log,test_size = 0.33, shuffle = True, random_state = 0)
+    X_train, _, Y_train, _ = train_test_split(X, Y_log, test_size=0.33, shuffle=True, random_state=0)
     regr = LinearRegression().fit(X_train, Y_train)
 
     return data, regr
-
 df, model = load_data()
 df = df.sort_values(['Comp','Squad','Player'],
               ascending = [True,True,True])
