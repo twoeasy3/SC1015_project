@@ -144,7 +144,11 @@ else:
         st.write("{0} is in the {1}th percentile in {2}".format(player,percentile_rank,stat))
     
     st.write("### Model value prediction for", player)
-    pred_df = player_df.drop(columns=["market_value_in_eur", "col"]).select_dtypes(exclude=['object'])
+        # Ask the model for the exact columns it was trained on
+    training_features = model.feature_names_in_
+    
+    # Filter the player's dataframe to only include those exact columns
+    pred_df = player_df[training_features]
     pred_value = np.exp(model.predict(pred_df).item(0))
     act_value = player_df["market_value_in_eur"].values.item(0)
     diff_pct = 100*(act_value/pred_value - 1)
